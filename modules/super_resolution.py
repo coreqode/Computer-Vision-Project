@@ -10,6 +10,7 @@ from base.base_module import BaseModule
 from nets.model import Model
 from datasets.dataset import Image91Dataset
 from utils.loss import *
+from utils.metrics import PSNR, SSIM
 
 class SRCNN(BaseModule):
     def __init__(self):
