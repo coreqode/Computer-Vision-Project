@@ -6,13 +6,23 @@ import torch
 from torch.utils.data import Dataset
 
 class Image91Dataset(Dataset):
-    def __init__(self, filepath):
+    def __init__(self, filepath, split = 'train', split_ratio = 0.85):
         self.path = filepath
 
         ## TODO: Write the code for generating the dataset or maybe include here only. 
         with h5py.File(self.path, 'r') as f:
             self.hr = np.array(f['hr'])
             self.lr = np.array(f['lr'])
+
+        if split == 'train':
+            self.hr = self.hr[: int(split_ratio * len(self.hr))]
+            self.lr = self.lr[: int(split_ratio * len(self.lr))]
+        else:
+            self.hr = self.hr[int(split_ratio * len(self.hr)) :]
+            self.lr = self.lr[int(split_ratio * len(self.lr)) :]
+
+        print(self.hr.shape[0])
+
 
     def __getitem__(self, idx):
         hr = self.hr[idx]

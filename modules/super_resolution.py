@@ -16,18 +16,19 @@ class SRCNN(BaseModule):
         super().__init__()
         self.epoch = 100
         self.data_dir = "./data/"
-        self.num_workers = 0
-        self.train_batch_size = 1
-        self.val_batch_size = 1
+        self.num_workers = 8
+        self.train_batch_size = 8
+        self.val_batch_size = 8
         self.train_shuffle = True
         self.val_shuffle = False
-        self.pin_memory = False
+        self.pin_memory = True
+        self.split_ratio = 0.85
 
     def define_dataset(self):
         path = os.path.join(self.data_dir, '91_images_data.h5')
 
-        self.train_dataset = Image91Dataset(path)
-        self.val_dataset = Image91Dataset(path)
+        self.train_dataset = Image91Dataset(path, split = 'train', split_ratio = self.split_ratio)
+        self.val_dataset = Image91Dataset(path, split = 'val', split_ratio = self.split_ratio)
 
     def define_model(self):
         self.model = Model(num_channels = 1)
