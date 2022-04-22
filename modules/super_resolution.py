@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from base.base_module import BaseModule
+from nets.model import Model
 
 class SRCNN(BaseModule):
     def __init__(self):
@@ -33,7 +34,7 @@ class SRCNN(BaseModule):
 
 
     def define_model(self):
-        self.model = Model(self.device, size =3)
+        self.model = Model()
 
     def loss_func(self, data, predictions):
         ### implement loss
@@ -52,7 +53,7 @@ def main():
     m.init(wandb_log=False, project='SuperResolution', entity='noldsoul')
     m.define_model()
     # h.inspect_dataset()
-    m.train()
+    # m.train()
 
 
 if __name__ == "__main__":
