@@ -25,7 +25,7 @@ class Image91Dataset(Dataset):
         lr = torch.from_numpy(lr).float().unsqueeze(0)
         model_inputs = {'input': lr}
         data = {'lr': lr, 'hr': hr}
-        return data
+        return model_inputs, data
 
     def normalize(self, img):
         img = img / 127.5 - 1

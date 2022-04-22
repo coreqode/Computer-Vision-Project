@@ -18,6 +18,8 @@ from torchsummary import summary
 from progress.bar import Bar
 import wandb
 
+
+
 class BaseModule:
     def __init__(self):
         self.epochs = 100
@@ -31,10 +33,6 @@ class BaseModule:
         self.save_freq = 2
         self.wandb_log_interval = 1000
         self.collate_fn = None
-        self.train_shuffle = True
-        self.val_shuffle = False
-        self.prefetch_factor = 2
-        self.pin_memory = True
 
     def init(self, wandb_log = False, project =None, entity = None):
         train_on_gpu = torch.cuda.is_available()
@@ -42,26 +40,24 @@ class BaseModule:
             self.device = 'cpu'
             print('CUDA is not available.  Training on CPU ...')
         else:
-            self.device = 'cuda:0'
+            self.device = 'cuda'
             print('CUDA is available!  Training on GPU ...')
 
         self.define_dataset()
         self.train_loader = torch.utils.data.DataLoader(
             self.train_dataset,
             batch_size=self.train_batch_size,
-            shuffle=self.train_shuffle,
+            shuffle=True,
             num_workers=self.num_workers,
-            prefetch_factor = self.prefetch_factor,
-            pin_memory=self.pin_memory,
+            pin_memory=True,
             collate_fn = self.collate_fn
         )
         self.val_loader = torch.utils.data.DataLoader(
             self.val_dataset,
             batch_size=self.val_batch_size,
-            shuffle=self.val_shuffle,
+            shuffle=False,
             num_workers=self.num_workers,
-            prefetch_factor = self.prefetch_factor,
-            pin_memory=self.pin_memory,
+            pin_memory=True,
             collate_fn = self.collate_fn
         )
         self.trainset_length = len(self.train_loader)
@@ -184,6 +180,8 @@ class BaseModule:
         if self.wandb:
             self.wandb.watch(self.model)
 
+
+
         print("")
         print(f"Trainset Volume : {self.trainset_length}")
         print(f"Valset Volume : {self.valset_length}")
@@ -202,24 +200,19 @@ class BaseModule:
             # -----------------------------------------------------------------#
             num_iterations = self.trainset_length
             bar = Bar(f"Ep : {epoch} | Training :", max=num_iterations)
-            for batch_idx, (data0, data1) in enumerate(self.train_loader):
-                if isinstance(data1, list):
-                    for i in range(len(data1)):
-                        model_inputs = data0[i]
-                        data = data1[i]
-                        model_inputs, data = self.send_to_cuda(model_inputs, data)
+            for batch_idx, (model_inputs, data) in enumerate(self.train_loader):
+                model_inputs, data = self.send_to_cuda(model_inputs, data)
+                if (batch_idx == 0) and (epoch == self.start_epoch):
+                    losses = self.train_step_zero(model_inputs, data)
+                    self.define_loss_meter(losses)
 
-                        if (batch_idx == 0) and (epoch == self.start_epoch):
-                            losses = self.train_step_zero(model_inputs, data)
-                            self.define_loss_meter(losses)
+                predictions = self.train_step(model_inputs, data)
 
-                        predictions = self.train_step(model_inputs, data)
-
-                        if self.wandb and (batch_idx % self.wandb_log_interval == 0):
-                            for name, loss in self.loss_meter.items():
-                                _loss = torch.mean(torch.FloatTensor(loss))
-                                _loss = _loss.detach().cpu().numpy()
-                                self.wandb.log({name: _loss})
+                if self.wandb and (batch_idx % self.wandb_log_interval == 0):
+                    for name, loss in self.loss_meter.items():
+                        _loss = torch.mean(torch.FloatTensor(loss))
+                        _loss = _loss.detach().cpu().numpy()
+                        self.wandb.log({name: _loss})
 
                 Bar.suffix = f"{batch_idx+1}/{num_iterations} | Total: {bar.elapsed_td:} | ETA: {bar.eta_td:} | {self.print_loss_metrics()}"
                 bar.next()

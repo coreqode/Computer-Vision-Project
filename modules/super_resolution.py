@@ -1,4 +1,5 @@
 import sys
+import os
 import numpy as np
 from torchsummary import summary
 from tqdm import tqdm, trange
@@ -7,6 +8,8 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from base.base_module import BaseModule
 from nets.model import Model
+from datasets.dataset import Image91Dataset
+from utils.loss import *
 
 class SRCNN(BaseModule):
     def __init__(self):
@@ -16,44 +19,39 @@ class SRCNN(BaseModule):
         self.num_workers = 0
         self.train_batch_size = 1
         self.val_batch_size = 1
-        self.prefetch_factor = 2
         self.train_shuffle = True
         self.val_shuffle = False
         self.pin_memory = False
 
     def define_dataset(self):
-        self.train_dataset =  FlagSimpleDataset(device=self.device, 
-                                    path='./data/flag_simple', history = True , 
-                                    split='train', node_info=self.node_info, 
-                                    augmentation = True)
-        
-        self.val_dataset =  FlagSimpleDataset(device=self.device, 
-                                    path='./data/flag_simple', history = True , 
-                                    split='train', node_info=self.node_info, 
-                                    augmentation = True)
+        path = os.path.join(self.data_dir, '91_images_data.h5')
 
+        self.train_dataset = Image91Dataset(path)
+        self.val_dataset = Image91Dataset(path)
 
     def define_model(self):
-        self.model = Model()
+        self.model = Model(num_channels = 1)
+
+    def define_optimizer(self):
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def loss_func(self, data, predictions):
         ### implement loss
-        loss = {"mse_loss": mse_loss}
+        ml = mse_loss(predictions['pred_hr'], data['hr'])
+        loss = {"mse_loss": ml}
         return loss
 
     def inspect_dataset(self):
         for idx, (model_inputs, data) in enumerate(self.train_loader):
-            model_inputs, data = self.send_to_cuda(model_inputs[0], data[0])
-            out = self.model(model_inputs, is_training = True)
-            print(out)
+            print(model_inputs)
             break
         
 def main():
     m = SRCNN()
     m.init(wandb_log=False, project='SuperResolution', entity='noldsoul')
     m.define_model()
-    # h.inspect_dataset()
-    # m.train()
+    #m.inspect_dataset()
+    m.train()
 
 
 if __name__ == "__main__":
