@@ -22,7 +22,7 @@ import wandb
 
 class BaseModule:
     def __init__(self):
-        self.epochs = 100
+        self.epochs = 50
         self.patience = 20
         self.start_epoch = 0
         self.train_batch_size = 4
@@ -60,6 +60,14 @@ class BaseModule:
             pin_memory=True,
             collate_fn = self.collate_fn
         )
+        self.test_loader = torch.utils.data.DataLoader(	
+            self.test_dataset,	
+            # batch_size=len(self.test_dataset),	
+            shuffle=False,	
+            num_workers=self.num_workers,	
+            pin_memory=True,	
+            collate_fn = self.collate_fn	
+        )
         self.trainset_length = len(self.train_loader)
         self.valset_length = len(self.val_loader)
         self.define_metrics_meter()
@@ -76,7 +84,7 @@ class BaseModule:
         image = Image.fromarray(image.astype(np.uint8))
         image.save(os.path.join(path, f"{name}.png"))
 
-    def define_model(self):
+    def define_model(self, n1, n2, f1, f2, f3, n3, f4, num_channels):
         pass
 
     def loss_func(self):
@@ -92,6 +100,12 @@ class BaseModule:
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
 
     def define_scheduler(self):
+        pass
+    
+    def calc_psnr(self, img1, img2):	
+        pass	
+    
+    def calc_ssim(self, img1, img2):	
         pass
 
     def train_step_zero(self, model_inputs, data):
@@ -118,6 +132,11 @@ class BaseModule:
         losses = self.loss_func(data, predictions)
         self.update_loss_meter(losses)
         return losses
+
+    def test_step(self, model_inputs):	
+        self.model.eval()	
+        predictions = self.model(model_inputs)		
+        return predictions
 
     def update_loss_meter(self, losses):
         for name, meter in self.loss_meter.items():
@@ -172,7 +191,7 @@ class BaseModule:
 
     def train(self):
 
-        self.define_model()
+        #self.define_model()
         self.define_optimizer()
         self.define_scheduler()
         self.model.to(self.device)
@@ -243,3 +262,53 @@ class BaseModule:
 
 
             self.initepoch()
+
+
+    def save_avg_psnr(self, out_path):
+        out_img_paths = sorted(glob.glob(out_path+'out*.png'))
+        hr_img_paths = sorted(glob.glob(out_path+'hr_in*.png'))
+        print(out_img_paths, hr_img_paths)
+        out_imgs = []
+        hr_imgs = []
+        psnr = []
+        ssim = []
+        for p in out_img_paths:
+            out_imgs.append(cv2.imread(p, 0))
+        for p in hr_img_paths:
+            hr_imgs.append(cv2.imread(p, 0))
+
+        for img1, img2 in zip(out_imgs, hr_imgs):
+            psnr.append(self.calc_psnr(img1, img2))
+            ssim.append(self.calc_ssim(img1, img2))
+
+        avg_psnr = np.mean(psnr)
+        avg_ssim = np.mean(ssim)
+        print(avg_psnr, avg_ssim)
+        with open(out_path+'psnr.txt', 'w') as f:
+            f.write('PSNR: \n'+ str(psnr))
+            f.write('\n Average PSNR:'+str(avg_psnr))
+            f.write('SSIM: \n'+ str(ssim))
+            f.write('\n Average SSIM:'+str(avg_ssim))
+
+
+    def save_output_imgs(self):
+
+        self.define_model()
+        path = './643232/weights_x4/model_46.pt'  # 100, 96, 80 - 2,3,4
+        self.model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+        self.define_optimizer()
+        self.model.to(self.device)
+
+        # ---------------------- Testing ----------------------------------#
+        # -----------------------------------------------------------------#
+        with torch.no_grad():
+            for batch_idx, (model_inputs, data) in enumerate(self.test_loader):
+                model_inputs, data = self.send_to_cuda(model_inputs, data)
+                predictions = self.test_step(model_inputs, data)
+
+                img = predictions['pred_hr'][0][0]
+                # print('shapes', img.shape)
+                # print(data['hr'][0][0].shape,data['lr'][0][0].shape )
+                plt.imsave('./643232/inference_x4/out'+str(batch_idx)+'.png', img.numpy(), cmap='gray')
+                
+        self.save_avg_psnr('./643232/inference_x4/')
