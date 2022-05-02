@@ -15,7 +15,7 @@ from utils.metrics import PSNR, SSIM
 class SRCNN(BaseModule):
     def __init__(self):
         super().__init__()
-        self.epoch = 100
+        self.epoch = 800
         self.data_dir = "./data/"
         self.num_workers = 8
         self.train_batch_size = 8
@@ -24,15 +24,17 @@ class SRCNN(BaseModule):
         self.val_shuffle = False
         self.pin_memory = True
         self.split_ratio = 0.85
+        self.scale = 2
+        self.patch_size = 32
 
     def define_dataset(self):
-        path = os.path.join(self.data_dir, '91_images_data.h5')
+        path = os.path.join(self.data_dir, 'T91')
 
-        self.train_dataset = Image91Dataset(path, split = 'train', split_ratio = self.split_ratio)
-        self.val_dataset = Image91Dataset(path, split = 'val', split_ratio = self.split_ratio)
+        self.train_dataset = Image91Dataset(path, scale = self.scale, patch_size = self.patch_size, split = 'train', split_ratio = self.split_ratio)
+        self.val_dataset = Image91Dataset(path, scale = self.scale, patch_size = self.patch_size, split = 'val', split_ratio = self.split_ratio)
 
     def define_model(self):
-        self.model = Model(num_channels = 1)
+        self.model = Model(num_channels = 3)
 
     def define_optimizer(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
