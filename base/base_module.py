@@ -121,7 +121,7 @@ class BaseModule:
 
     def update_loss_meter(self, losses):
         for name, meter in self.loss_meter.items():
-            meter.append(losses[name])
+            meter.append(losses[name].detach().cpu())
 
     def print_loss_metrics(self):
         strings = []

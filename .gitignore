@@ -5,6 +5,9 @@ __pycache__/
 
 /data/*
 /weights/*
+/weights_*
+/inference/*
+/wandb/*
 # C extensions
 *.so
 

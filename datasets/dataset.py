@@ -9,11 +9,12 @@ from natsort import natsorted
 import random
 
 class Image91Dataset(Dataset):
-    def __init__(self, filepath, scale , patch_size , split = 'train', split_ratio = 0.85):
+    def __init__(self, filepath, scale , bicubic, patch_size , split = 'train', split_ratio = 0.85):
         self.path = filepath
         self.all_files = natsorted(glob.glob(f'{self.path}/*.png'))
         self.scale = scale
         self.patch_size = patch_size
+        self.bicubic = bicubic
 
         if split == 'train':
             self.all_files = self.all_files[: int(split_ratio * len(self.all_files))]
@@ -31,8 +32,6 @@ class Image91Dataset(Dataset):
         hr = torch.from_numpy(hr).float().permute((2, 0, 1))
         lr = torch.from_numpy(lr).float().permute((2, 0, 1))
 
-     
-
         model_inputs = {'input': lr}
         data = {'lr': lr, 'hr': hr}
         return model_inputs, data
@@ -47,7 +46,9 @@ class Image91Dataset(Dataset):
         hr_height = (img.height // self.scale) * self.scale
         hr = img.resize((hr_width, hr_height), resample=Image.BICUBIC)
         lr = hr.resize((hr_width // self.scale, hr_height // self.scale), resample=Image.BICUBIC)
-        lr = lr.resize((lr.width * self.scale, lr.height * self.scale), resample=Image.BICUBIC)
+        if self.bicubic:
+            lr = lr.resize((lr.width * self.scale, lr.height * self.scale), resample=Image.BICUBIC)
+
         hr = np.array(hr).astype(np.float32)
         lr = np.array(lr).astype(np.float32)
         #hr = convert_rgb_to_y(hr)
@@ -57,8 +58,15 @@ class Image91Dataset(Dataset):
         i = random.choice(np.arange(lr.shape[0] - self.patch_size))
         j = random.choice(np.arange(lr.shape[1] - self.patch_size))
 
-        lr_patch = lr[i:i + self.patch_size, j:j + self.patch_size]
-        hr_patch = hr[i:i + self.patch_size, j:j + self.patch_size]
+        if self.bicubic:
+            lr_patch = lr[i:i + self.patch_size, j:j + self.patch_size]
+            hr_patch = hr[i:i + self.patch_size, j:j + self.patch_size]
+        else:
+            lr_patch = lr[i:i + self.patch_size, j:j + self.patch_size]
+            i = self.scale * i
+            j = self.scale * j
+            hr_patch = hr[i:i + self.scale * self.patch_size, j:j + self.scale * self.patch_size]
+
         return lr_patch, hr_patch
 
     def convert_rgb_to_y(self, img):
